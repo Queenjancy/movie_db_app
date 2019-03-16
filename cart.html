@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<!-- [START css] -->
+    <link type="text/css" rel="stylesheet" href="/bootstrap/css/bootstrap.css">
+    <link type="text/css" rel="stylesheet" href="/bootstrap/css/bootstrap-responsive.css">
+    <!-- [END css] -->
+    <style type="text/css">
+      body {
+        padding-top: 40px;
+        padding-bottom: 40px;
+        background-color: #f5f5f5;
+      }
+      blockquote {
+        margin-bottom: 10px;
+        border-left-color: #bbb;
+      }
+      form {
+        margin-top: 10px;
+      }
+      .form-signin input[type="text"] {
+        font-size: 16px;
+        height: auto;
+        margin-bottom: 15px;
+        padding: 7px 9px;
+      }
+      .row {
+        margin-left: 0px;
+        margin-top: 10px;
+        overflow: scroll;
+      }
+      .header {
+      	text-align: center;
+      	border: solid;
+      }
+    </style>
+</head>
+<body>
+	<div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <button type="button" class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="brand" href="/">Kailun's Movie Browsing App</a>
+          <li><a href="/cart"><img src="cart-logo.jpg" alt="shopping cart"></a>
+        </div>
+      </div>
+  	</div>
+	<br>
+	<header>current movies in shopping cart</header>
+	<br>
+	<div class='container'>
+    {% if cart is defined %}
+		  {% for purchase in cart.purchases %}
+			 <blockquote>Movie: {{purchase.item}}, Price: ${{purchase.purchase_price}}</blockquote>
+       <form action="/cart" method="post">
+         <input type="hidden" name="movie" value={{ purchase.item }}><br>
+         <input type="submit" class="btn btn-secondary" value="Delete">
+       </form>
+		  {% endfor %}
+      <blockquote>Total cost: {{ cart.total_cost }}</blockquote>
+    {% endif %}
+	</div>
+  <div class='container'>
+    {% if completed is defined and completed %}
+      <blockquote>Thank you for your purchase!</blockquote>
+    {% endif %}
+  </div>
+
+  <div class="container">
+    <form action="/cart" method="post">
+      <input type="hidden" name="checkout" value="checkout">
+      <input type="submit" class="btn btn-secondary" value="Check-Out">
+    </form>
+  </div>  
+</body>
+</html>
