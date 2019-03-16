@@ -17,6 +17,7 @@
 # [START imports]
 import os
 import urllib
+import datetime
 
 from google.appengine.api import users
 from google.appengine.api import search
@@ -61,16 +62,58 @@ class MovieInfo(ndb.Model):
     main_actor2 = ndb.StringProperty(indexed=False)
     release_year = ndb.StringProperty(indexed=False)
     duration = ndb.StringProperty(indexed=False)
+    rent_price = ndb.StringProperty(indexed=False);
+    buy_price = ndb.StringProperty(indexed=False);
 # [END greeting]
+
+
+# [START purchase]
+class Purchase(ndb.Model):
+    item = ndb.StringProperty(indexed=False)
+    purchase_price = ndb.StringProperty(indexed=False)
+
+    def __eq__(self, other):
+        return self.item == other.item
+# [END purchase]
+
+
+# [START shopping cart]
+class ShoppingCart(ndb.Model):
+    '''Model for shpping cart'''
+    id = ndb.StringProperty()
+    purchases = ndb.StructuredProperty(Purchase, repeated=True)
+    total_cost = ndb.FloatProperty(indexed=False)
+# [END shoppinf cart]
+
+
+# [START check out record]
+class CheckOutRecord(ndb.Model):
+    id = ndb.StringProperty
+    purchases = ndb.StructuredProperty(Purchase, repeated=True)
+    time = ndb.DateTimeProperty()
+# [END check out record]
 
 
 # [START main page]
 class MainPage(webapp2.RequestHandler):
 
     def get(self): 
+        user = users.get_current_user()
+        if user:
+            url = users.create_logout_url(self.request.uri)
+            url_linktext = 'Logout'
+        else:
+            url = users.create_login_url(self.request.uri)
+            url_linktext = 'Login'
+
         template = JINJA_ENVIRONMENT.get_template('index.html')
-        template_values = {}
+        template_values = {
+            'user': user,
+            'url': url,
+            'url_linktext': url_linktext
+        }
         self.response.write(template.render(template_values))
+
 # [END main page]
 
 
@@ -91,6 +134,33 @@ class Display(webapp2.RequestHandler):
 
         template = JINJA_ENVIRONMENT.get_template('display.html')
         self.response.write(template.render(template_values))
+
+
+    def post(self):
+        # get movie and movie price
+        movie_title = self.request.get('movie')
+        movie_price = self.request.get('purchase_price')
+
+        user = users.get_current_user()
+        if user is None:
+            return
+        # if the user exists in database, retrieve its shopping cart; otherwise create a new cart
+        cart = ndb.Key(ShoppingCart, str(user.email)).get()
+        if cart is None: 
+            cart = ShoppingCart(id=str(user.email), purchases=[], total_cost=0)
+            cart.key = ndb.Key(ShoppingCart, str(user.email))
+        # if movie is already purchased, do not allow it to be purchased twice
+        matching_list = [x for x in cart.purchases if x.item == movie_title]
+        if not matching_list:
+            title_modified = movie_title.replace(" ", "-")
+            print(title_modified)
+            cart.purchases.append(Purchase(item=title_modified, purchase_price=movie_price))
+            print(movie_price)
+            cart.total_cost = cart.total_cost + float(movie_price)
+            cart.put()
+        self.redirect('/')
+
+
 # [END display]
 
 
@@ -119,15 +189,18 @@ class Info(webapp2.RequestHandler):
         genre_name = self.request.get('movie_genre', DEFAULT_GENRE)
 
         movie_info = MovieInfo(parent=movie_key(genre_name))
-        movie_info.title = self.request.get('title');
+        movie_info.title = self.request.get('title').replace(" ", "_");
         movie_info.director = self.request.get('director');
         movie_info.main_actor1 = self.request.get('main_actor1');
         movie_info.main_actor2 = self.request.get('main_actor2');
         movie_info.release_year = self.request.get('release_year');
         movie_info.duration = self.request.get('duration');
+        movie_info.rent_price = self.request.get('rent_price');
+        movie_info.buy_price = self.request.get('buy_price');
+
 
         raise_error = False
-        if len(movie_info.title) is 0 or len(movie_info.director) is 0 or len(movie_info.release_year) is 0 or len(movie_info.duration) is 0:
+        if len(movie_info.title) is 0 or len(movie_info.director) is 0 or len(movie_info.release_year) is 0 or len(movie_info.duration) is 0 or len(movie_info.rent_price) is 0 or len(movie_info.buy_price) is 0:
             raise_error = True
             template_value = {
                 'raise_error': raise_error
@@ -143,15 +216,17 @@ class Info(webapp2.RequestHandler):
         title_tokens = ','.join(tokenize(movie_info.title.lower()))
         director_tokens = ','.join(tokenize(movie_info.director.lower()))
         actor_tokens = ','.join(tokenize(movie_info.main_actor1.lower()) + tokenize(movie_info.main_actor2.lower()))
-        complete_info = movie_info.title + ', ' + movie_info.director + ', ' + movie_info.main_actor1 + ', ' + movie_info.main_actor2 + ', ' + movie_info.release_year + ', ' + movie_info.duration
+        complete_info = movie_info.title + ', ' + movie_info.director + ', ' + movie_info.main_actor1 + ', ' + movie_info.main_actor2 + ', ' + movie_info.release_year + ', ' + movie_info.duration + ', rent: $' + movie_info.rent_price + ", buy: $" + movie_info.buy_price
         item_index = search.Index(name=genre_name)
         item_fields = [
             search.TextField(name='title', value=title_tokens),
             search.TextField(name='director',value=director_tokens),
             search.TextField(name='main_actor', value=actor_tokens),
             search.TextField(name='release_year',value=movie_info.release_year),
-            search.TextField(name='complete_info', value=complete_info)
-        ]
+            search.TextField(name='complete_info', value=complete_info),
+            search.TextField(name='rent_price', value=movie_info.rent_price),
+            search.TextField(name='buy_price', value=movie_info.buy_price),
+            search.TextField(name='full_title', value=movie_info.title)]
         document = search.Document(fields=item_fields)
         search.Index(name=genre_name).put(document)
 
@@ -222,12 +297,77 @@ class MovieSearch(webapp2.RequestHandler):
 
 
 
+# [START check cart]
+class CheckCart(webapp2.RequestHandler):
+
+    def get(self):
+        user = users.get_current_user()
+        if user is None:
+            return
+        # if the user exists in database, retrieve its shopping cart; else create a new cart
+        cart = ndb.Key(ShoppingCart, str(user.email)).get()
+        if cart is None: 
+            cart = ShoppingCart(id=str(user.email), purchases=[], total_cost=0)
+            cart.key = ndb.Key(ShoppingCart, str(user.email))
+        template = JINJA_ENVIRONMENT.get_template('/cart.html')
+        template_value = {'cart': cart}
+        self.response.write(template.render(template_value))
+
+
+    def post(self):
+        user = users.get_current_user()
+        email = str(user.email)
+        cart = ndb.Key(ShoppingCart, email).get()
+        completed = False
+
+        if self.request.get("checkout"):
+            dt = datetime.datetime.now()
+            record = CheckOutRecord(id=email, purchases=cart.purchases, time=dt)
+            record.key = ndb.Key(CheckOutRecord, email)
+            record.put()
+            cart.purchases = []
+            cart.total_cost = 0
+            cart.put()
+            completed = True
+
+        movie = self.request.get('movie')
+        if movie:
+            for purchase in cart.purchases: 
+                if purchase.item == movie: 
+                    cart.purchases.remove(purchase)
+                    cart.total_cost = cart.total_cost - float(purchase.purchase_price)
+            cart.put()
+
+        template = JINJA_ENVIRONMENT.get_template('cart.html')
+        template_values = {
+            'cart': cart,
+            'completed': completed
+        }
+        self.response.write(template.render(template_values))
+
+    '''
+    def delete(self):
+        movieToDelete = self.request.get('movie')
+        user = users.get_current_user
+        cart = ndb.Key(ShoppingCart, str(user.email)).get()
+        cart.purchases.remove(movieToDelete)
+        cart.put()
+
+        template = JINJA_ENVIRONMENT.get_template('cart.html')
+        template_values = {
+            'cart': cart
+        }
+        self.response.write(template.render(template_values))
+    '''
+
+
 # [START app]
 # defining which script handles request for givan URLs
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/display', Display),
     ('/info', Info),
-    ('/search', MovieSearch)
+    ('/search', MovieSearch),
+    ('/cart', CheckCart)
 ], debug=True)
 # [END app]
