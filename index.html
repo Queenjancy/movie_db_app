@@ -48,6 +48,7 @@
             <span class="icon-bar"></span>
           </button>
           <a class="brand" href="/">Kailun's Movie Browsing App</a>
+          <li><a href="/cart"><img src="cart-logo.jpg" alt="shopping cart"></a>
         </div>
       </div>
   </div>
@@ -70,6 +71,10 @@
       <li><a href="search">Search movie database</a>
       <li><a href="info">Enter new movie info</a>
     </ul>
+  </div>
+
+  <div>
+    <li><a href="{{ url|safe }}">{{ url_linktext }}</a>
   </div>
 </body>
 </html>

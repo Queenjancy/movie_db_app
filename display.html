@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html>
 <head>
 	<!-- [START css] -->
@@ -46,6 +45,7 @@
             <span class="icon-bar"></span>
           </button>
           <a class="brand" href="/">Kailun's Movie Browsing App</a>
+          <li><a href="/cart"><img src="cart-logo.jpg" alt="shopping cart"></a>
         </div>
       </div>
   	</div>
@@ -54,7 +54,13 @@
 	<br>
 	<div class='container'>
 		{% for movie in movies %}
-			<blockquote>{{ movie.title }}, {{ movie.director }}, {{ movie.main_actor1 }}, {{ movie.main_actor2 }}, {{ movie.release_year }}, {{ movie.duration }}</blockquote>
+			<blockquote>{{ movie.title }}, {{ movie.director }}, {{ movie.main_actor1 }}, {{ movie.main_actor2 }}, {{ movie.release_year }}, {{ movie.duration }}, rent: ${{movie.rent_price}}, buy: ${{movie.buy_price}}</blockquote>
+      <form action="/display", method="post">
+        <input type="hidden" name="movie" value={{ movie.title }}><br>
+        <input type="radio" name="purchase_price" value={{ movie.rent_price }}>Rent<br>
+        <input type="radio" name="purchase_price" value={{ movie.buy_price }}>Buy<br>
+        <input type="submit" class="btn btn-secondary" value="purchase">
+      </form>
 		{% endfor %}
 	</div>
 </body>

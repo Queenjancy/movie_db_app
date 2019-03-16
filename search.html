@@ -48,6 +48,7 @@
             <span class="icon-bar"></span>
           </button>
           <a class="brand" href="/">Kailun's Movie Browsing App</a>
+          <li><a href="/cart"><img src="cart-logo.jpg" alt="shopping cart"></a>
         </div>
       </div>
   	</div>
@@ -59,7 +60,16 @@
 			<blockquote>Oops! No matching movie in current database.</blockquote>
 		{% elif search_result is defined and search_result.number_found > 0 %}
 			{% for doc in search_result %}
-				<blockquote>{{ doc.fields[4].value }}</blockquote>
+        <div>
+          <blockquote>{{ doc.fields[4].value }}</blockquote>
+
+          <form action="/display", method="post">
+            <input type="hidden" name="movie" value={{ doc.fields[7].value }}><br>
+            <input type="radio" name="purchase_price" value={{ doc.fields[5].value }}>Rent<br>
+            <input type="radio" name="purchase_price" value={{ doc.fields[6].value }}>Buy<br>
+            <input type="submit" class="btn btn-secondary" value="purchase">
+          </form>
+        </div>
 			{% endfor %}
 		{% endif %}
 	</div>
